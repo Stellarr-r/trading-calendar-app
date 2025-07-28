@@ -71,7 +71,3 @@ python trading_calendar.py
 ```
 
 or download and install the .bat
-
-## License
-
-This project is open source and available under the MIT License.
