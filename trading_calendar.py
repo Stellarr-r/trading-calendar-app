@@ -83,8 +83,7 @@ DEFAULT_CONFIG = {
     },
     "sheet_names": [
         "List of trades",
-        "list of trades",
-        "trades"
+        "list of trades"
     ],
     "ui": {
         "window_width": 1200,
