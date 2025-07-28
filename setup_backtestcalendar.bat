@@ -169,8 +169,8 @@ if /i "%DEV_MODE%"=="true" (
     echo       Version: DEVELOPMENT BUILD
     echo       Mode: Local development with debug features
 ) else (
-    set "STRATEGY_ANALYZER_VERSION=1.0.0"
-    echo       Version: 1.0.0 (Production Release)
+    set "STRATEGY_ANALYZER_VERSION=1.0.1"
+    echo       Version: 1.0.1 (Production Release)
     echo       Mode: Standard production build
 )
 set "STRATEGY_ANALYZER_DATA_DIR=%DATA_DIR%\data"
