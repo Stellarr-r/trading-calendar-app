@@ -23,7 +23,7 @@ import calendar
 
 # Check and install dependencies
 def check_dependencies():
-    """Check and install required packages"""
+    """Check for required packages and install if missing"""
     required_packages = ['openpyxl', 'requests']
     missing_packages = []
     
@@ -39,9 +39,9 @@ def check_dependencies():
         for package in missing_packages:
             try:
                 subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
-                print(f"✅ {package} installed successfully")
+                print(f"{package} installed successfully")
             except subprocess.CalledProcessError:
-                print(f"❌ Failed to install {package}")
+                print(f"Failed to install {package}")
                 return False
     
     return True
@@ -99,14 +99,14 @@ DEFAULT_CONFIG = {
 # ============================================================================
 
 class DataManager:
-    """Handles data persistence and history management"""
+    """Manages saving/loading of trading data and history"""
     
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.ensure_data_directory()
     
     def ensure_data_directory(self):
-        """Create data directory if it doesn't exist"""
+        """Make sure data directory exists"""
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir, exist_ok=True)
     
@@ -137,11 +137,11 @@ class DataManager:
             with open(save_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
             
-            print(f"💾 Trading data saved: {os.path.basename(save_file)}")
+            print(f"Trading data saved: {os.path.basename(save_file)}")
             return save_file
             
         except Exception as e:
-            print(f"❌ Error saving data: {e}")
+            print(f"Error saving data: {e}")
             return None
     
     def get_data_history(self):
@@ -165,7 +165,7 @@ class DataManager:
             return files
             
         except Exception as e:
-            print(f"❌ Error getting data history: {e}")
+            print(f"Error getting data history: {e}")
             return []
 
 # ============================================================================
@@ -173,7 +173,7 @@ class DataManager:
 # ============================================================================
 
 class TradeProcessor:
-    """Handles processing of TradingView Excel exports"""
+    """Process TradingView Excel exports"""
     
     def __init__(self, config=None):
         """Initialize with configuration"""
@@ -184,7 +184,7 @@ class TradeProcessor:
     
     def process_file(self, file_path, progress_callback=None):
         """
-        Process TradingView Excel export
+        Load and process a TradingView Excel file
         
         Args:
             file_path (str): Path to Excel file
@@ -231,7 +231,7 @@ class TradeProcessor:
             raise Exception(f"Error processing Excel file: {str(e)}")
     
     def _find_trades_sheet(self, wb, progress_callback=None):
-        """Find the trades sheet in the workbook"""
+        """Look for the sheet with trade data"""
         sheet_names = self.config.get("sheet_names", ["List of trades"])
         
         for sheet_name in wb.sheetnames:
@@ -244,7 +244,7 @@ class TradeProcessor:
         return None
     
     def _analyze_headers(self, sheet, progress_callback=None):
-        """Analyze column headers in the sheet"""
+        """Find the right columns in the sheet"""
         headers = {}
         column_config = self.config.get("excel_columns", {})
         first_row = list(sheet.iter_rows(min_row=1, max_row=1, values_only=True))[0]
@@ -253,7 +253,7 @@ class TradeProcessor:
             if header:
                 header_str = str(header).strip()
                 
-                # Check against configured column names
+                # See if this matches any column we need
                 for key, expected_name in column_config.items():
                     if header_str == expected_name:
                         headers[key] = i
@@ -272,7 +272,7 @@ class TradeProcessor:
         return headers
     
     def _process_trades(self, sheet, headers, progress_callback=None):
-        """Process all trades from the sheet"""
+        """Go through all the trades in the sheet"""
         self.trades = []
         self.daily_pnl = defaultdict(float)
         processed_trade_numbers = set()
@@ -306,7 +306,7 @@ class TradeProcessor:
             progress_callback(f"Successfully processed {len(self.trades)} unique trades")
     
     def _process_single_trade(self, row, headers, processed_trade_numbers):
-        """Process a single trade row"""
+        """Extract data from one trade row"""
         trade_num = row[headers['trade_num']] if 'trade_num' in headers else None
         datetime_val = row[headers['datetime']]
         pnl_val = row[headers['pnl']]
@@ -376,7 +376,7 @@ class TradeProcessor:
             return None
     
     def calculate_stats(self):
-        """Calculate trading statistics"""
+        """Calculate overall trading performance"""
         if not self.trades:
             self.stats = {
                 'total_pnl': 0.0,
@@ -424,11 +424,11 @@ class ModernTradingCalendar:
         # Validate and display version info
         self.validate_version()
         
-        # Setup data persistence
+        # Set up data saving
         data_dir = os.environ.get('TRADING_CALENDAR_DATA_DIR', os.path.join(os.getcwd(), 'data'))
         self.data_manager = DataManager(data_dir)
         
-        # Setup trade processor
+        # Set up trade processing
         self.trade_processor = TradeProcessor(self.config)
         
         # Theme from config
@@ -449,24 +449,24 @@ class ModernTradingCalendar:
         """Validate version format and show startup info"""
         import re
         
-        # Check if version matches X.Y.Z format
+        # Make sure version format is correct
         version_pattern = r'^\d+\.\d+\.\d+$'
         if not re.match(version_pattern, self.CURRENT_VERSION):
-            print(f"⚠️  Warning: Invalid version format '{self.CURRENT_VERSION}'. Using fallback.")
+            print(f"Warning: Invalid version format '{self.CURRENT_VERSION}'. Using fallback.")
             self.CURRENT_VERSION = "1.0.0"
         
         # Show version info in console
-        print(f"🚀 Trading Calendar v{self.CURRENT_VERSION} starting...")
+        print(f"Trading Calendar v{self.CURRENT_VERSION} starting...")
         
-        # Check version source
+        # See where version info came from
         version_source = os.environ.get('TRADING_CALENDAR_VERSION')
         if version_source:
-            print(f"📋 Version loaded from TradingCalendar.bat: {version_source}")
+            print(f"Version loaded from TradingCalendar.bat: {version_source}")
         else:
-            print(f"📋 Using default version (run via TradingCalendar.bat for version management)")
+            print(f"Using default version (run via TradingCalendar.bat for version management)")
         
     def setup_ui(self):
-        """Create modern UI layout - optimized for speed"""
+        """Build the main interface"""
         # Main container
         main_container = tk.Frame(self.root, bg=self.theme['bg_dark'])
         main_container.pack(fill='both', expand=True, padx=0, pady=0)
@@ -478,7 +478,7 @@ class ModernTradingCalendar:
         content_frame = tk.Frame(main_container, bg=self.theme['bg_dark'])
         content_frame.pack(fill='both', expand=True, padx=20, pady=0)
         
-        # Create placeholder and defer heavy UI elements
+        # Show loading screen first, build the rest later
         loading_label = tk.Label(content_frame, 
                                text="Loading...", 
                                font=('Inter', 12),
@@ -486,11 +486,11 @@ class ModernTradingCalendar:
                                bg=self.theme['bg_dark'])
         loading_label.pack(pady=50)
         
-        # Create heavy UI elements after a brief delay
+        # Build the main UI components after a short delay
         self.root.after(100, lambda: self.create_heavy_ui_elements(content_frame, loading_label))
         
     def create_heavy_ui_elements(self, content_frame, loading_label):
-        """Create the heavy UI elements after initial load"""
+        """Build the main UI components"""
         # Remove loading label
         loading_label.destroy()
         
@@ -504,7 +504,7 @@ class ModernTradingCalendar:
         self.create_bottom_info(content_frame)
         
     def create_top_bar(self, parent):
-        """Modern top navigation bar"""
+        """Top navigation bar"""
         top_bar = tk.Frame(parent, bg=self.theme['bg_card'], height=70)
         top_bar.pack(fill='x', padx=0, pady=0)
         top_bar.pack_propagate(False)
@@ -555,7 +555,7 @@ class ModernTradingCalendar:
         self.file_status.pack(side='left', padx=(20, 0), pady=20)
         
     def create_stats_section(self, parent):
-        """Modern statistics cards"""
+        """Statistics cards"""
         stats_container = tk.Frame(parent, bg=self.theme['bg_dark'])
         stats_container.pack(fill='x', pady=20)
         
@@ -578,7 +578,7 @@ class ModernTradingCalendar:
             stats_grid.grid_columnconfigure(i, weight=1)
     
     def create_stat_card(self, parent, label, value):
-        """Create a modern stat card"""
+        """Make a statistics card widget"""
         card = tk.Frame(parent, 
                        bg=self.theme['bg_card'],
                        relief='flat',
@@ -611,7 +611,7 @@ class ModernTradingCalendar:
         return card
     
     def create_calendar_section(self, parent):
-        """Modern calendar display"""
+        """Calendar display"""
         calendar_container = tk.Frame(parent, bg=self.theme['bg_dark'])
         calendar_container.pack(fill='both', expand=True, pady=(20, 0))
         
@@ -668,7 +668,7 @@ class ModernTradingCalendar:
         self.setup_calendar_grid()
         
     def setup_calendar_grid(self):
-        """Setup calendar grid layout"""
+        """Build the calendar grid"""
         # Day headers
         days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         for i, day in enumerate(days):
@@ -689,7 +689,7 @@ class ModernTradingCalendar:
         self.update_calendar()
     
     def create_day_cell(self, day, pnl=0, row=0, col=0):
-        """Create modern day cell"""
+        """Make a single day in the calendar"""
         # Determine styling
         if pnl > 0:
             bg_color = self.theme['accent_green']
@@ -855,7 +855,7 @@ class ModernTradingCalendar:
         self.process_file_background(file_path)
         
     def process_file_background(self, file_path):
-        """Process file in background thread"""
+        """Start processing file in the background"""
         processing_thread = threading.Thread(
             target=self.process_file_with_logging,
             args=(file_path,),
@@ -864,12 +864,12 @@ class ModernTradingCalendar:
         processing_thread.start()
         
     def process_file_with_logging(self, file_path):
-        """Process file with detailed logging using TradeProcessor"""
+        """Process the Excel file and show progress updates"""
         try:
             # Use the embedded trade processor
             result = self.trade_processor.process_file(file_path, self.log_loading)
             
-            # Update application data
+            # Store the results
             self.trades = result['trades']
             self.daily_pnl = defaultdict(float, result['daily_pnl'])
             self.stats = result['stats']
@@ -885,7 +885,7 @@ class ModernTradingCalendar:
             
             self.log_loading("Preparing calendar display...")
             
-            # Update UI on main thread
+            # Update the interface
             self.loading_dialog.after(0, self.finish_processing)
             
         except Exception as e:
@@ -911,7 +911,7 @@ class ModernTradingCalendar:
         self.continue_btn.pack(pady=(10, 0))
         self.continue_btn.focus_set()  # Focus on the button
         
-        # Update main window displays
+        # Refresh the display
         self.update_displays()
         
         # Save trading data for history
@@ -953,12 +953,12 @@ class ModernTradingCalendar:
             self.loading_dialog.destroy()
     
     def update_displays(self):
-        """Update all displays with new data"""
+        """Refresh all the data displays"""
         self.update_stats_display()
         self.update_calendar()
     
     def update_stats_display(self):
-        """Update statistics cards"""
+        """Update the statistics cards"""
         if not self.stats:
             return
         
@@ -987,7 +987,7 @@ class ModernTradingCalendar:
         )
     
     def update_calendar(self):
-        """Update calendar display"""
+        """Refresh the calendar view"""
         # Clear existing cells (keep headers)
         for widget in self.calendar_frame.winfo_children():
             if int(widget.grid_info()['row']) > 0:
@@ -1010,7 +1010,7 @@ class ModernTradingCalendar:
                 
                 self.create_day_cell(day, pnl, row, col)
         
-        # Update month display
+        # Update the month header
         month_name = calendar.month_name[self.current_month]
         self.month_display.config(text=f"{month_name} {self.current_year}")
     
@@ -1039,29 +1039,29 @@ class ModernTradingCalendar:
 def main():
     """Main application entry point"""
     try:
-        print("🚀 Trading Calendar - Complete Self-Contained Application")
+        print("Trading Calendar")
         print("=" * 60)
         
-        # Create and run the application
+        # Start the application
         root = tk.Tk()
         app = ModernTradingCalendar(root)
         
-        print("✅ Application initialized successfully")
-        print("📊 Ready to process TradingView Excel exports")
+        print("Application initialized successfully")
+        print("Ready to process TradingView Excel exports")
         print("=" * 60)
         
         root.mainloop()
         
     except ImportError as e:
         # Show error if dependencies missing
-        print(f"❌ Missing dependency: {e}")
+        print(f"Missing dependency: {e}")
         print("\nThis shouldn't happen as dependencies are auto-installed.")
         print("Please ensure you have internet access and pip is available.")
         input("\nPress Enter to exit...")
         sys.exit(1)
     except Exception as e:
-        # Handle any other startup errors
-        print(f"❌ Application error: {e}")
+        # Catch any other problems
+        print(f"Application error: {e}")
         input("\nPress Enter to exit...")
         sys.exit(1)
 
