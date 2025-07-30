@@ -2,10 +2,18 @@
 setlocal enabledelayedexpansion
 title Strategy Analyzer Setup
 
-:: Self-update mechanism - Check for launcher updates first
+:: Configuration - Set DEV_MODE before self-update check
+set "DEV_MODE=false"
+
+:: Self-update mechanism - Skip in development mode
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/setup_backtestcalendar.bat"
 set "CURRENT_LAUNCHER=%~f0"
 set "TEMP_LAUNCHER=%TEMP%\setup_backtestcalendar_new.bat"
+
+if /i "%DEV_MODE%"=="true" (
+    echo Development mode enabled - skipping launcher updates
+    goto skip_launcher_update
+)
 
 echo Checking for launcher updates...
 powershell -Command "try { $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%LAUNCHER_URL%' -OutFile '%TEMP_LAUNCHER%' -UseBasicParsing; exit 0 } catch { exit 1 }" >nul 2>&1
@@ -47,6 +55,7 @@ if exist "%TEMP_LAUNCHER%" (
     echo Could not check for launcher updates - continuing with current version
 )
 
+:skip_launcher_update
 cls
 echo.
 echo ================================================================================
@@ -55,8 +64,7 @@ echo                     Advanced Trading Analytics Platform
 echo ================================================================================
 echo.
 
-:: Configuration
-set "DEV_MODE=false"
+:: Additional Configuration
 set "DATA_DIR=%APPDATA%\StrategyAnalyzer"
 set "PYTHON_FILE=%DATA_DIR%\trading_calendar.py"
 set "GITHUB_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/trading_calendar.py"
@@ -155,7 +163,6 @@ if /i "%DEV_MODE%"=="true" (
             echo    * Check your internet connection
             echo    * Temporarily disable firewall/antivirus
             echo    * Try running as administrator
-            echo    * Contact your IT department for network access
             echo ================================================================================
             goto error_exit
         )
@@ -169,8 +176,8 @@ if /i "%DEV_MODE%"=="true" (
     echo       Version: DEVELOPMENT BUILD
     echo       Mode: Local development with debug features
 ) else (
-    set "STRATEGY_ANALYZER_VERSION=1.0.1"
-    echo       Version: 1.0.1 (Production Release)
+    set "STRATEGY_ANALYZER_VERSION=1.0.2"
+    echo       Version: 1.0.2 (Production Release)
     echo       Mode: Standard production build
 )
 set "STRATEGY_ANALYZER_DATA_DIR=%DATA_DIR%\data"
