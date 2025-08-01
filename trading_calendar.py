@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import calendar
 
-# ================================ DEPENDENCY MANAGEMENT ================================
+# ================================ DEPENDENCY MANAGEMENT ===============================
 
 def check_dependencies():
     required_packages = ['openpyxl', 'requests']
