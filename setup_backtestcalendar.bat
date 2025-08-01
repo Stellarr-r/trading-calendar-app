@@ -201,7 +201,7 @@ echo
 echo  Your trading data and analysis are automatically saved to:
 echo  %DATA_DIR%\data
 echo.
-echo  To run StellarInsight again, simply double-click this setup file.
+echo  To run Strategy Analyzer again, simply double-click this setup file.
 echo ================================================================================
 echo.
 pause
