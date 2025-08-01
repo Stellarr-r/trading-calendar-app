@@ -3,14 +3,14 @@ setlocal enabledelayedexpansion
 title Strategy Analyzer Setup
 
 :: Configuration - Set DEV_MODE before self-update check
-set "DEV_MODE=false"
+set "DEV_MODE=true"
 
 :: Self-update mechanism - Skip in development mode
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/setup_backtestcalendar.bat"
 set "CURRENT_LAUNCHER=%~f0"
 set "TEMP_LAUNCHER=%TEMP%\setup_backtestcalendar_new.bat"
 
-if /i "%DEV_MODE%"=="true" (
+if /i "%DEV_MODE%"=="false" (
     echo Development mode enabled - skipping launcher updates
     goto skip_launcher_update
 )
@@ -115,14 +115,38 @@ echo.
 if /i "%DEV_MODE%"=="true" (
     echo [3/5] Development Mode - Local File Copy
     if exist "trading_calendar.py" (
-        echo       Copying local development version...
-        copy "trading_calendar.py" "%PYTHON_FILE%" >nul 2>&1
-        if exist "%PYTHON_FILE%" (
-            echo       Local version deployed successfully
+        echo       Checking for local file changes...
+        set "COPY_NEEDED=false"
+        
+        if not exist "%PYTHON_FILE%" (
+            set "COPY_NEEDED=true"
+            echo       Target file doesn't exist - copy needed
         ) else (
-            echo       ERROR: Failed to copy local version
-            echo       Check file permissions in: %DATA_DIR%
-            goto error_exit
+            :: Compare file sizes and modification times
+            for %%A in ("trading_calendar.py") do set "SOURCE_SIZE=%%~zA" & set "SOURCE_TIME=%%~tA"
+            for %%A in ("%PYTHON_FILE%") do set "TARGET_SIZE=%%~zA" & set "TARGET_TIME=%%~tA"
+            
+            if not "!SOURCE_SIZE!"=="!TARGET_SIZE!" (
+                set "COPY_NEEDED=true"
+                echo       File size differs - copy needed
+            ) else if not "!SOURCE_TIME!"=="!TARGET_TIME!" (
+                set "COPY_NEEDED=true"
+                echo       File timestamp differs - copy needed
+            ) else (
+                echo       Local file is up to date
+            )
+        )
+        
+        if "!COPY_NEEDED!"=="true" (
+            echo       Copying local development version...
+            copy "trading_calendar.py" "%PYTHON_FILE%" >nul 2>&1
+            if exist "%PYTHON_FILE%" (
+                echo       Local version deployed successfully
+            ) else (
+                echo       ERROR: Failed to copy local version
+                echo       Check file permissions in: %DATA_DIR%
+                goto error_exit
+            )
         )
     ) else (
         echo       ERROR: trading_calendar.py not found in current directory
@@ -201,7 +225,7 @@ echo
 echo  Your trading data and analysis are automatically saved to:
 echo  %DATA_DIR%\data
 echo.
-echo  To run Strategy Analyzer again, simply double-click this setup file.
+echo  To run StellarInsight again, simply double-click this setup file.
 echo ================================================================================
 echo.
 pause
