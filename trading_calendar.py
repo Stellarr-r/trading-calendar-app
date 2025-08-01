@@ -160,14 +160,12 @@ class TradeProcessor:
     
     def process_file(self, file_path, progress_callback=None):
         try:
-            # Quick file size check to optimize loading strategy
             file_size = os.path.getsize(file_path)
-            is_small_file = file_size < 1024 * 1024  # Less than 1MB
+            is_small_file = file_size < 1024 * 1024
             
             if progress_callback and not is_small_file:
                 progress_callback("Opening Excel file...")
             
-            # Use read_only mode for better performance
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True, keep_links=False)
             
             if progress_callback and not is_small_file:
@@ -182,12 +180,10 @@ class TradeProcessor:
             
             headers = self._analyze_headers(sheet, progress_callback if not is_small_file else None)
             
-            # For small files, skip intermediate progress updates
             self._process_trades(sheet, headers, progress_callback if not is_small_file else None)
             
             self.calculate_stats()
             
-            # Close workbook to free memory
             wb.close()
             
             return {
@@ -241,7 +237,6 @@ class TradeProcessor:
         self.daily_pnl = defaultdict(float)
         processed_trade_numbers = set()
         
-        # Read all rows into memory at once for faster processing
         if progress_callback:
             progress_callback("Reading Excel data into memory...")
         
@@ -253,21 +248,15 @@ class TradeProcessor:
                 progress_callback("No data rows found")
             return
         
-        # Pre-allocate lists for better performance
         trades_list = []
         daily_pnl_dict = defaultdict(float)
         
-        # Smart progress reporting - less overhead for small files
         if total_rows < 1000:
-            # For small files, minimal progress updates
-            progress_interval = max(1, total_rows // 10)  # Max 10 updates
-            show_progress = total_rows > 100  # Only show progress if >100 rows
+            progress_interval = max(1, total_rows // 10)
+            show_progress = total_rows > 100
         else:
-            # For large files, more frequent updates
-            progress_interval = max(1, total_rows // 100)  # Max 100 updates
+            progress_interval = max(1, total_rows // 100)
             show_progress = True
-        
-        # Get column indices once
         datetime_col = headers['datetime']
         pnl_col = headers['pnl']
         trade_num_col = headers.get('trade_num')
@@ -281,20 +270,15 @@ class TradeProcessor:
                 progress_callback(f"Processing trades... {progress}% ({i}/{total_rows})")
             
             try:
-                # Fast inline processing instead of method calls
                 trade_num = row[trade_num_col] if trade_num_col is not None else None
                 datetime_val = row[datetime_col]
                 pnl_val = row[pnl_col]
                 
-                # Skip invalid rows quickly
                 if not datetime_val or pnl_val is None:
                     continue
                 
-                # Skip duplicate trade numbers
                 if trade_num and trade_num in processed_trade_numbers:
                     continue
-                
-                # Fast date parsing
                 if isinstance(datetime_val, datetime):
                     trade_date = datetime_val.date()
                 else:
@@ -304,11 +288,8 @@ class TradeProcessor:
                     except (ValueError, TypeError):
                         continue
                 
-                # Validate date range quickly
                 if trade_date > datetime.now().date() or trade_date.year < 2000:
                     continue
-                
-                # Fast PnL parsing
                 if isinstance(pnl_val, (int, float)):
                     pnl = float(pnl_val)
                 elif isinstance(pnl_val, str):
@@ -322,11 +303,8 @@ class TradeProcessor:
                 else:
                     continue
                 
-                # Add trade number to processed set
                 if trade_num:
                     processed_trade_numbers.add(trade_num)
-                
-                # Create trade record
                 trade = {
                     'date': trade_date,
                     'pnl': pnl,
@@ -340,7 +318,6 @@ class TradeProcessor:
             except (ValueError, TypeError, AttributeError):
                 continue
         
-        # Assign results
         self.trades = trades_list
         self.daily_pnl = daily_pnl_dict
         
@@ -416,12 +393,9 @@ class TradeProcessor:
             }
             return
         
-        # Fast statistics calculation
         total_trades = len(self.trades)
         total_pnl = 0.0
         winning_trades = 0
-        
-        # Single pass through trades for efficiency
         for trade in self.trades:
             pnl = trade['pnl']
             total_pnl += pnl
@@ -430,7 +404,6 @@ class TradeProcessor:
         
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
         
-        # Count trading days efficiently
         trading_days = sum(1 for pnl in self.daily_pnl.values() if pnl != 0)
         avg_daily = total_pnl / trading_days if trading_days > 0 else 0
         
@@ -462,15 +435,12 @@ class StrategyAnalyzer:
         
         self.validate_version()
         
-        # Try to find the correct data directory
         data_dir = os.environ.get('STRATEGY_ANALYZER_DATA_DIR')
         if not data_dir:
-            # If not set via launcher, use the standard AppData location
             appdata_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "StrategyAnalyzer", "data")
             if os.path.exists(appdata_dir):
                 data_dir = appdata_dir
             else:
-                # Fallback to local data folder
                 data_dir = os.path.join(os.getcwd(), 'data')
         
         self.data_manager = DataManager(data_dir)
@@ -488,6 +458,9 @@ class StrategyAnalyzer:
         self.trades_by_date = {}
         self.performance_metrics = {}
         self.show_performance_logs = False
+        self.excluded_dates = set()
+        self.exclusion_reason = {}
+        self.stats_window = None
         
         self.setup_ui()
     
@@ -686,6 +659,13 @@ class StrategyAnalyzer:
         stats_container = tk.Frame(parent, bg=self.theme['bg_dark'])
         stats_container.pack(fill='x', pady=20)
         
+        stats_title = tk.Label(stats_container,
+                              text="Overview",
+                              font=('Inter', 12, 'bold'),
+                              fg=self.theme['text_secondary'],
+                              bg=self.theme['bg_dark'])
+        stats_title.pack(anchor='w', pady=(0, 15))
+        
         stats_grid = tk.Frame(stats_container, bg=self.theme['bg_dark'])
         stats_grid.pack(fill='x')
         
@@ -703,7 +683,7 @@ class StrategyAnalyzer:
             self.stat_cards[key] = card
             stats_grid.grid_columnconfigure(i, weight=1)
     
-    def create_stat_card(self, parent, label, value):
+    def create_stat_card(self, parent, label, value, is_monthly=False):
         card = tk.Frame(parent, 
                        bg=self.theme['bg_card'],
                        relief='flat',
@@ -738,6 +718,19 @@ class StrategyAnalyzer:
         cal_header = tk.Frame(calendar_container, bg=self.theme['bg_dark'])
         cal_header.pack(fill='x', pady=(0, 20))
         
+        detailed_stats_btn = tk.Button(cal_header,
+                                      text="📊 Detailed Stats",
+                                      font=('Inter', 10, 'bold'),
+                                      bg=self.theme['accent_blue'],
+                                      fg='white',
+                                      border=0,
+                                      padx=15,
+                                      pady=8,
+                                      cursor='hand2',
+                                      activebackground='#2563eb',
+                                      command=self.show_detailed_stats)
+        detailed_stats_btn.pack(side='right')
+        
         nav_frame = tk.Frame(cal_header, bg=self.theme['bg_dark'])
         nav_frame.pack()
         
@@ -760,8 +753,9 @@ class StrategyAnalyzer:
                                      font=('Inter', 16, 'bold'),
                                      fg=self.theme['text_primary'],
                                      bg=self.theme['bg_dark'],
-                                     padx=30)
-        self.month_display.pack(side='left')
+                                     width=20,
+                                     anchor='center')
+        self.month_display.pack(side='left', padx=30)
         
         next_btn = tk.Button(nav_frame,
                             text="›",
@@ -794,8 +788,7 @@ class StrategyAnalyzer:
         
         for i in range(7):
             self.calendar_frame.grid_columnconfigure(i, weight=1)
-        for i in range(7):
-            self.calendar_frame.grid_rowconfigure(i, weight=1)
+        
             
         self.update_calendar()
     
@@ -803,8 +796,13 @@ class StrategyAnalyzer:
         date_key = f"{self.current_year}-{self.current_month:02d}-{day:02d}"
         day_trades = self.trades_by_date.get(date_key, [])
         trade_count = len(day_trades)
+        is_excluded = date_key in self.excluded_dates
         
-        if pnl > 0:
+        if is_excluded:
+            bg_color = self.theme['text_muted']
+            text_color = 'white'
+            hover_color = '#4b5563'
+        elif pnl > 0:
             bg_color = self.theme['accent_green']
             text_color = 'white'
             hover_color = '#059669'
@@ -854,7 +852,6 @@ class StrategyAnalyzer:
         else:
             widgets_list = [cell, content, day_label]
         
-        # FIXED: Create event handlers with proper closure capture using default arguments
         def create_click_handler(dk, dt):
             def handle_click(e):
                 if self.show_performance_logs:
@@ -872,13 +869,11 @@ class StrategyAnalyzer:
                     widget.config(bg=orig_bg)
             return on_enter, on_leave
         
-        # FIXED: Always bind click event to ALL widgets so clicking anywhere works
         click_handler = create_click_handler(date_key, day_trades)
         for widget in widgets_list:
             widget.bind('<Button-1>', click_handler)
         
-        # Only add hover effects for cells with trades
-        if trade_count > 0:
+        if trade_count > 0 or is_excluded:
             on_enter, on_leave = create_hover_handlers(widgets_list, bg_color, hover_color)
             for widget in widgets_list:
                 widget.bind('<Enter>', on_enter)
@@ -887,9 +882,15 @@ class StrategyAnalyzer:
     def create_optimized_day_cell(self, day, pnl, day_trades, row, col):
         """Optimized version that accepts pre-calculated data to avoid lookups"""
         trade_count = len(day_trades)
+        date_key = f"{self.current_year}-{self.current_month:02d}-{day:02d}"
+        is_excluded = date_key in self.excluded_dates
         
         # OPTIMIZED: Use pre-calculated values instead of recalculating
-        if pnl > 0:
+        if is_excluded:
+            bg_color = self.theme['text_muted']
+            text_color = 'white'
+            hover_color = '#4b5563'
+        elif pnl > 0:
             bg_color = self.theme['accent_green']
             text_color = 'white'
             hover_color = '#059669'
@@ -942,7 +943,6 @@ class StrategyAnalyzer:
         else:
             widgets_list = [cell, content, day_label]
         
-        # FIXED: Create event handlers with proper closure capture using default arguments
         def create_click_handler(dk, dt):
             def handle_click(e):
                 if self.show_performance_logs:
@@ -960,13 +960,11 @@ class StrategyAnalyzer:
                     widget.config(bg=orig_bg)
             return on_enter, on_leave
         
-        # FIXED: Always bind click event to ALL widgets so clicking anywhere works
         click_handler = create_click_handler(date_key, day_trades)
         for widget in widgets_list:
             widget.bind('<Button-1>', click_handler)
         
-        # Only add hover effects for cells with trades
-        if trade_count > 0:
+        if trade_count > 0 or is_excluded:
             on_enter, on_leave = create_hover_handlers(widgets_list, bg_color, hover_color)
             for widget in widgets_list:
                 widget.bind('<Enter>', on_enter)
@@ -995,7 +993,6 @@ class StrategyAnalyzer:
                               bg=self.theme['bg_dark'])
         title_label.pack(anchor='w', pady=(0, 20))
         
-        # Performance section
         perf_frame = tk.Frame(main_frame, bg=self.theme['bg_card'])
         perf_frame.pack(fill='x', pady=(0, 15))
         
@@ -1008,7 +1005,6 @@ class StrategyAnalyzer:
                 fg=self.theme['text_primary'],
                 bg=self.theme['bg_card']).pack(anchor='w', pady=(0, 10))
         
-        # Performance logging checkbox
         perf_log_frame = tk.Frame(perf_content, bg=self.theme['bg_card'])
         perf_log_frame.pack(fill='x', pady=5)
         
@@ -1031,7 +1027,6 @@ class StrategyAnalyzer:
                 fg=self.theme['text_muted'],
                 bg=self.theme['bg_card']).pack(anchor='w', padx=(25, 0))
         
-        # Data Management section
         data_frame = tk.Frame(main_frame, bg=self.theme['bg_card'])
         data_frame.pack(fill='x', pady=(0, 15))
         
@@ -1044,7 +1039,6 @@ class StrategyAnalyzer:
                 fg=self.theme['text_primary'],
                 bg=self.theme['bg_card']).pack(anchor='w', pady=(0, 10))
         
-        # Data folder information
         folder_size = self.get_data_folder_size()
         file_count = self.get_data_file_count()
         formatted_size = self.format_file_size(folder_size)
@@ -1070,7 +1064,6 @@ class StrategyAnalyzer:
                 fg=self.theme['text_muted'],
                 bg=self.theme['bg_card']).pack(anchor='w', pady=(5, 0))
         
-        # Clear data button
         clear_frame = tk.Frame(data_content, bg=self.theme['bg_card'])
         clear_frame.pack(fill='x', pady=(10, 0))
         
@@ -1113,7 +1106,6 @@ class StrategyAnalyzer:
                 fg=self.theme['text_muted'],
                 bg=self.theme['bg_card']).pack(anchor='w', padx=(0, 0), pady=(5, 0))
         
-        # Close button
         button_frame = tk.Frame(main_frame, bg=self.theme['bg_dark'])
         button_frame.pack(fill='x', pady=(20, 0))
         
@@ -1556,6 +1548,277 @@ class StrategyAnalyzer:
             text=str(self.stats['total_trades'])
         )
     
+    def calculate_monthly_stats(self):
+        """Calculate statistics for the currently displayed month"""
+        monthly_trades = []
+        monthly_pnl = 0.0
+        
+        for trade in self.trades:
+            if trade['date'].year == self.current_year and trade['date'].month == self.current_month:
+                monthly_trades.append(trade)
+                monthly_pnl += trade['pnl']
+        
+        if not monthly_trades:
+            return {
+                'monthly_pnl': 0.0,
+                'monthly_win_rate': 0.0,
+                'monthly_avg_daily': 0.0,
+                'monthly_trades': 0
+            }
+        
+        winning_trades = sum(1 for trade in monthly_trades if trade['pnl'] > 0)
+        monthly_win_rate = (winning_trades / len(monthly_trades) * 100) if monthly_trades else 0
+        
+        trading_days = set()
+        for trade in monthly_trades:
+            trading_days.add(trade['date'])
+        
+        monthly_avg_daily = monthly_pnl / len(trading_days) if trading_days else 0
+        
+        return {
+            'monthly_pnl': monthly_pnl,
+            'monthly_win_rate': monthly_win_rate,
+            'monthly_avg_daily': monthly_avg_daily,
+            'monthly_trades': len(monthly_trades)
+        }
+    
+    def show_detailed_stats(self):
+        """Show detailed statistics in a popup window"""
+        if not self.trades:
+            messagebox.showinfo("No Data", "Please load a trading file first to view detailed statistics.")
+            return
+        
+        if self.stats_window and self.stats_window.winfo_exists():
+            self.stats_window.lift()
+            self.stats_window.focus_force()
+            return
+        
+        self.stats_window = tk.Toplevel(self.root)
+        self.stats_window.title("Detailed Statistics")
+        self.stats_window.geometry("900x700")
+        self.stats_window.configure(bg=self.theme['bg_dark'])
+        self.stats_window.transient(self.root)
+        
+        self.stats_window.geometry("+{}+{}".format(
+            int(self.root.winfo_screenwidth()/2 - 450),
+            int(self.root.winfo_screenheight()/2 - 350)
+        ))
+        
+        def on_closing():
+            self.stats_window.destroy()
+            self.stats_window = None
+        
+        self.stats_window.protocol("WM_DELETE_WINDOW", on_closing)
+        
+        main_frame = tk.Frame(self.stats_window, bg=self.theme['bg_dark'])
+        main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        title_label = tk.Label(main_frame,
+                              text="📊 Detailed Trading Statistics",
+                              font=('Inter', 18, 'bold'),
+                              fg=self.theme['text_primary'],
+                              bg=self.theme['bg_dark'])
+        title_label.pack(anchor='w', pady=(0, 20))
+        
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('TNotebook', background=self.theme['bg_dark'])
+        style.configure('TNotebook.Tab', background=self.theme['bg_card'], foreground=self.theme['text_primary'])
+        style.map('TNotebook.Tab', background=[('selected', self.theme['accent_blue'])])
+        
+        self.stats_notebook = ttk.Notebook(main_frame)
+        self.stats_notebook.pack(fill='both', expand=True, pady=(0, 20))
+        
+        self.overall_stats_frame = tk.Frame(self.stats_notebook, bg=self.theme['bg_dark'])
+        self.stats_notebook.add(self.overall_stats_frame, text='Overall Stats')
+        
+        self.monthly_stats_frame = tk.Frame(self.stats_notebook, bg=self.theme['bg_dark'])
+        self.stats_notebook.add(self.monthly_stats_frame, text='Monthly Stats')
+        
+        self.performance_stats_frame = tk.Frame(self.stats_notebook, bg=self.theme['bg_dark'])
+        self.stats_notebook.add(self.performance_stats_frame, text='Performance Analysis')
+        
+        self.update_stats_window_content()
+        
+        close_btn = tk.Button(main_frame,
+                             text="Close",
+                             font=('Inter', 11, 'bold'),
+                             bg=self.theme['accent_blue'],
+                             fg='white',
+                             border=0,
+                             padx=25,
+                             pady=10,
+                             cursor='hand2',
+                             activebackground='#2563eb',
+                             command=on_closing)
+        close_btn.pack(side='right')
+        
+        self.stats_window.bind('<Escape>', lambda e: on_closing())
+    
+    def create_overall_stats_tab(self, parent):
+        """Create the overall statistics tab content"""
+        scroll_frame = tk.Frame(parent, bg=self.theme['bg_dark'])
+        scroll_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        stats_grid = tk.Frame(scroll_frame, bg=self.theme['bg_dark'])
+        stats_grid.pack(fill='x', pady=(0, 20))
+        
+        overall_stats = [
+            ("Total P&L", f"${self.stats.get('total_pnl', 0):,.2f}"),
+            ("Win Rate", f"{self.stats.get('win_rate', 0):.1f}%"),
+            ("Average Daily P&L", f"${self.stats.get('avg_daily', 0):.2f}"),
+            ("Total Trades", str(self.stats.get('total_trades', 0)))
+        ]
+        
+        for i, (label, value) in enumerate(overall_stats):
+            card = self.create_detailed_stat_card(stats_grid, label, value)
+            card.grid(row=i//2, column=i%2, padx=10, pady=10, sticky='ew')
+        
+        stats_grid.grid_columnconfigure(0, weight=1)
+        stats_grid.grid_columnconfigure(1, weight=1)
+    
+    def create_monthly_stats_tab(self, parent):
+        """Create the monthly statistics tab content"""
+        scroll_frame = tk.Frame(parent, bg=self.theme['bg_dark'])
+        scroll_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        month_name = calendar.month_name[self.current_month]
+        current_month_label = tk.Label(scroll_frame,
+                                      text=f"📅 {month_name} {self.current_year} Statistics",
+                                      font=('Inter', 14, 'bold'),
+                                      fg=self.theme['text_primary'],
+                                      bg=self.theme['bg_dark'])
+        current_month_label.pack(anchor='w', pady=(0, 15))
+        
+        monthly_stats = self.calculate_monthly_stats()
+        
+        stats_grid = tk.Frame(scroll_frame, bg=self.theme['bg_dark'])
+        stats_grid.pack(fill='x', pady=(0, 20))
+        
+        monthly_data = [
+            ("Month P&L", f"${monthly_stats['monthly_pnl']:,.2f}"),
+            ("Month Win Rate", f"{monthly_stats['monthly_win_rate']:.1f}%"),
+            ("Month Avg Daily", f"${monthly_stats['monthly_avg_daily']:.2f}"),
+            ("Month Trades", str(monthly_stats['monthly_trades']))
+        ]
+        
+        for i, (label, value) in enumerate(monthly_data):
+            card = self.create_detailed_stat_card(stats_grid, label, value)
+            card.grid(row=i//2, column=i%2, padx=10, pady=10, sticky='ew')
+        
+        stats_grid.grid_columnconfigure(0, weight=1)
+        stats_grid.grid_columnconfigure(1, weight=1)
+    
+    def create_performance_analysis_tab(self, parent):
+        """Create the performance analysis tab content"""
+        scroll_frame = tk.Frame(parent, bg=self.theme['bg_dark'])
+        scroll_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        winning_trades = [t for t in self.trades if t['pnl'] > 0]
+        losing_trades = [t for t in self.trades if t['pnl'] < 0]
+        
+        if winning_trades:
+            avg_win = sum(t['pnl'] for t in winning_trades) / len(winning_trades)
+            max_win = max(t['pnl'] for t in winning_trades)
+        else:
+            avg_win = max_win = 0
+            
+        if losing_trades:
+            avg_loss = sum(t['pnl'] for t in losing_trades) / len(losing_trades)
+            max_loss = min(t['pnl'] for t in losing_trades)
+        else:
+            avg_loss = max_loss = 0
+        
+        analysis_data = [
+            ("Average Win", f"${avg_win:.2f}"),
+            ("Average Loss", f"${avg_loss:.2f}"),
+            ("Largest Win", f"${max_win:.2f}"),
+            ("Largest Loss", f"${max_loss:.2f}"),
+            ("Winning Trades", str(len(winning_trades))),
+            ("Losing Trades", str(len(losing_trades))),
+            ("Profit Factor", f"{(abs(avg_win * len(winning_trades)) / abs(avg_loss * len(losing_trades)) if losing_trades else 0):.2f}"),
+            ("Risk/Reward Ratio", f"{(abs(avg_win / avg_loss) if avg_loss != 0 else 0):.2f}")
+        ]
+        
+        stats_grid = tk.Frame(scroll_frame, bg=self.theme['bg_dark'])
+        stats_grid.pack(fill='x', pady=(0, 20))
+        
+        for i, (label, value) in enumerate(analysis_data):
+            card = self.create_detailed_stat_card(stats_grid, label, value)
+            card.grid(row=i//2, column=i%2, padx=10, pady=10, sticky='ew')
+        
+        stats_grid.grid_columnconfigure(0, weight=1)
+        stats_grid.grid_columnconfigure(1, weight=1)
+    
+    def create_detailed_stat_card(self, parent, label, value):
+        """Create a detailed stat card for the popup with color coding"""
+        card = tk.Frame(parent, bg=self.theme['bg_card'], relief='flat', bd=0)
+        
+        content = tk.Frame(card, bg=self.theme['bg_card'])
+        content.pack(fill='both', expand=True, padx=15, pady=15)
+        
+        value_color = self.theme['text_primary']
+        
+        if any(keyword in label.lower() for keyword in ['p&l', 'pnl', 'daily', 'win', 'loss', 'factor']):
+            numeric_value = 0
+            value_str = str(value).replace('$', '').replace(',', '').replace('%', '')
+            
+            try:
+                if 'rate' in label.lower() or '%' in str(value):
+                    numeric_value = float(value_str)
+                elif 'factor' in label.lower():
+                    numeric_value = float(value_str) - 1.0
+                else:
+                    numeric_value = float(value_str)
+                
+                if numeric_value > 0:
+                    value_color = self.theme['accent_green']
+                elif numeric_value < 0:
+                    value_color = self.theme['accent_red']
+                    
+            except (ValueError, AttributeError):
+                if any(indicator in str(value).lower() for indicator in ['winning', 'profit']):
+                    value_color = self.theme['accent_green']
+                elif any(indicator in str(value).lower() for indicator in ['losing', 'loss']):
+                    value_color = self.theme['accent_red']
+        
+        if 'winning trades' in label.lower():
+            value_color = self.theme['accent_green']
+        elif 'losing trades' in label.lower():
+            value_color = self.theme['accent_red']
+        
+        value_label = tk.Label(content,
+                              text=value,
+                              font=('Inter', 16, 'bold'),
+                              fg=value_color,
+                              bg=self.theme['bg_card'])
+        value_label.pack(anchor='w')
+        
+        label_widget = tk.Label(content,
+                               text=label,
+                               font=('Inter', 10),
+                               fg=self.theme['text_secondary'],
+                               bg=self.theme['bg_card'])
+        label_widget.pack(anchor='w', pady=(5, 0))
+        
+        return card
+    
+    def update_stats_window_content(self):
+        """Update the content of the stats window if it's open"""
+        if not self.stats_window or not self.stats_window.winfo_exists():
+            return
+        
+        for widget in self.overall_stats_frame.winfo_children():
+            widget.destroy()
+        for widget in self.monthly_stats_frame.winfo_children():
+            widget.destroy()
+        for widget in self.performance_stats_frame.winfo_children():
+            widget.destroy()
+        
+        self.create_overall_stats_tab(self.overall_stats_frame)
+        self.create_monthly_stats_tab(self.monthly_stats_frame)
+        self.create_performance_analysis_tab(self.performance_stats_frame)
+    
     def update_calendar(self):
         start_time = time.time()
         
@@ -1564,20 +1827,23 @@ class StrategyAnalyzer:
             print(f"Total trades: {len(self.trades)}")
         
         destroy_start = time.time()
-        # OPTIMIZED: Batch widget destruction for better performance
         widgets_to_destroy = []
         for widget in self.calendar_frame.winfo_children():
             if int(widget.grid_info()['row']) > 0:
                 widgets_to_destroy.append(widget)
         
-        # Destroy all widgets at once
         for widget in widgets_to_destroy:
             widget.destroy()
         destroy_time = time.time() - destroy_start
         
         cal = calendar.monthcalendar(self.current_year, self.current_month)
         
-        # OPTIMIZED: Pre-calculate month data to reduce lookups during cell creation
+        total_rows = len(cal) + 1
+        for i in range(total_rows):
+            self.calendar_frame.grid_rowconfigure(i, weight=1)
+        for i in range(total_rows, 8):
+            self.calendar_frame.grid_rowconfigure(i, weight=0)
+        
         month_data_start = time.time()
         month_pnl_data = {}
         month_trade_data = {}
@@ -1590,7 +1856,6 @@ class StrategyAnalyzer:
         month_data_time = time.time() - month_data_start
         
         cell_creation_start = time.time()
-        # OPTIMIZED: Create cells with pre-calculated data
         for week_num, week in enumerate(cal):
             for day_num, day in enumerate(week):
                 if day == 0:
@@ -1599,7 +1864,6 @@ class StrategyAnalyzer:
                 row = week_num + 1
                 col = day_num
                 
-                # Use pre-calculated data instead of lookups
                 pnl = month_pnl_data[day]
                 day_trades = month_trade_data[day]
                 
@@ -1608,6 +1872,8 @@ class StrategyAnalyzer:
         
         month_name = calendar.month_name[self.current_month]
         self.month_display.config(text=f"{month_name} {self.current_year}")
+        
+        self.update_stats_window_content()
         
         total_time = time.time() - start_time
         
