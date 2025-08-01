@@ -10,7 +10,7 @@ set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-
 set "CURRENT_LAUNCHER=%~f0"
 set "TEMP_LAUNCHER=%TEMP%\setup_backtestcalendar_new.bat"
 
-if /i "%DEV_MODE%"=="true" (
+if /i "%DEV_MODE%"=="false" (
     echo Development mode enabled - skipping launcher updates
     goto skip_launcher_update
 )
