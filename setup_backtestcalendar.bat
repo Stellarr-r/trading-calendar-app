@@ -6,11 +6,11 @@ title Strategy Analyzer Setup
 set "DEV_MODE=true"
 
 :: Self-update mechanism - Skip in development mode
-set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/setup_backtestcalendar.bat"
+set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/setup_BacktestCalendar.bat"
 set "CURRENT_LAUNCHER=%~f0"
 set "TEMP_LAUNCHER=%TEMP%\setup_backtestcalendar_new.bat"
 
-if /i "%DEV_MODE%"=="false" (
+if /i "%DEV_MODE%"=="true" (
     echo Development mode enabled - skipping launcher updates
     goto skip_launcher_update
 )
