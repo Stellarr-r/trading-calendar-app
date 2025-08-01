@@ -2,15 +2,12 @@
 setlocal enabledelayedexpansion
 title Strategy Analyzer Setup
 
-:: Configuration - Set DEV_MODE before self-update check
 set "DEV_MODE=true"
-
-:: Self-update mechanism - Skip in development mode
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/setup_BacktestCalendar.bat"
 set "CURRENT_LAUNCHER=%~f0"
 set "TEMP_LAUNCHER=%TEMP%\setup_backtestcalendar_new.bat"
 
-if /i "%DEV_MODE%"=="false" (
+if /i "%DEV_MODE%"=="true" (
     echo Development mode enabled - skipping launcher updates
     goto skip_launcher_update
 )
@@ -35,16 +32,12 @@ if exist "%TEMP_LAUNCHER%" (
         echo ================================================================================
         echo.
         timeout /t 3 /nobreak >nul
-        
-        :: Create update script that will replace the current launcher
         echo @echo off > "%TEMP%\update_launcher.bat"
         echo timeout /t 2 /nobreak ^>nul >> "%TEMP%\update_launcher.bat"
         echo copy /Y "%TEMP_LAUNCHER%" "%CURRENT_LAUNCHER%" ^>nul 2^>^&1 >> "%TEMP%\update_launcher.bat"
         echo del "%TEMP_LAUNCHER%" ^>nul 2^>^&1 >> "%TEMP%\update_launcher.bat"
         echo start "" "%CURRENT_LAUNCHER%" >> "%TEMP%\update_launcher.bat"
         echo del "%%~f0" ^>nul 2^>^&1 >> "%TEMP%\update_launcher.bat"
-        
-        :: Launch update script and exit
         start "" "%TEMP%\update_launcher.bat"
         exit /b 0
     ) else (
@@ -63,8 +56,6 @@ echo                            STRATEGY ANALYZER SETUP
 echo                     Advanced Trading Analytics Platform
 echo ================================================================================
 echo.
-
-:: Additional Configuration
 set "DATA_DIR=%APPDATA%\StrategyAnalyzer"
 set "PYTHON_FILE=%DATA_DIR%\trading_calendar.py"
 set "GITHUB_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/trading_calendar.py"
@@ -122,7 +113,6 @@ if /i "%DEV_MODE%"=="true" (
             set "COPY_NEEDED=true"
             echo       Target file doesn't exist - copy needed
         ) else (
-            :: Compare file sizes and modification times
             for %%A in ("trading_calendar.py") do set "SOURCE_SIZE=%%~zA" & set "SOURCE_TIME=%%~tA"
             for %%A in ("%PYTHON_FILE%") do set "TARGET_SIZE=%%~zA" & set "TARGET_TIME=%%~tA"
             
@@ -225,7 +215,7 @@ echo
 echo  Your trading data and analysis are automatically saved to:
 echo  %DATA_DIR%\data
 echo.
-echo  To run StellarInsight again, simply double-click this setup file.
+echo  To run Strategy Analyze again, simply double-click this setup file.
 echo ================================================================================
 echo.
 pause
