@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 title Strategy Analyzer Setup
 
-set "DEV_MODE=true"
+set "DEV_MODE=false"
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Stellarr-r/trading-calendar-app/main/setup_BacktestCalendar.bat"
 set "CURRENT_LAUNCHER=%~f0"
 set "TEMP_LAUNCHER=%TEMP%\setup_backtestcalendar_new.bat"
